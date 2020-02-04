@@ -64,7 +64,7 @@ impl Editor {
         }
 
         let cursor = self.buffers[self.current_buffer].cursor;
-        write!(self.stdout, "{}", termion::cursor::Goto(cursor.0, cursor.1))?;
+        write!(self.stdout, "{}{}", termion::cursor::Goto(cursor.0, cursor.1), termion::cursor::Show)?;
 
         self.stdout.flush()?;
 
