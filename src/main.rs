@@ -78,6 +78,9 @@ enum Key {
     ArrowRight,
     ArrowUp,
     ArrowDown,
+    Del,
+    Home,
+    End,
     PageUp,
     PageDown,
 }
@@ -112,8 +115,13 @@ impl Terminal {
                                             let cb = cb?;
                                             if cb == b'~' {
                                                 match c {
+                                                    b'1' => Ok(Some(Key::Home)),
+                                                    b'3' => Ok(Some(Key::Del)),
+                                                    b'4' => Ok(Some(Key::End)),
                                                     b'5' => Ok(Some(Key::PageUp)),
                                                     b'6' => Ok(Some(Key::PageDown)),
+                                                    b'7' => Ok(Some(Key::Home)),
+                                                    b'8' => Ok(Some(Key::End)),
                                                     _ => Ok(Some(Key::Char('\x1b'))),
                                                 }
                                             } else {
@@ -128,6 +136,17 @@ impl Terminal {
                                     b'C' => Ok(Some(Key::ArrowRight)),
                                     b'D' => Ok(Some(Key::ArrowLeft)),
                                     _ => Ok(Some(Key::Char('\x1b')))
+                                }
+                            } else {
+                                Ok(Some(Key::Char('\x1b')))
+                            }
+                        } else if c == b'O' {
+                            if let Some(c) = self.stdin.next() {
+                                let c = c?;
+                                match c {
+                                    b'H' => Ok(Some(Key::Home)),
+                                    b'F' => Ok(Some(Key::End)),
+                                    _ => Ok(Some(Key::Char('\x1b'))),
                                 }
                             } else {
                                 Ok(Some(Key::Char('\x1b')))
@@ -152,7 +171,7 @@ impl Terminal {
         if let Ok(size) = self.get_size_ioctl() {
             Ok(size)
         } else {
-          self.get_size_escape_codes()
+        self.get_size_escape_codes()
         }
     }
 
@@ -192,20 +211,20 @@ impl Terminal {
 
             size.0 = first
                 .into_iter()
-                .map(|i| i.to_string())
+                .map(|i| (i as char).to_string())
                 .collect::<String>()
                 .parse::<u16>()
                 .or_else(|_| Err(io::Error::new(io::ErrorKind::InvalidData, "unexpected data in stdin")))?;
 
             size.1 = second
                 .into_iter()
-                .skip(1)
                 .take_while(|i| (*i as char).is_digit(10))
-                .map(|i| i.to_string())
+                .map(|i| (i as char).to_string())
                 .collect::<String>()
                 .parse::<u16>()
                 .or_else(|_| Err(io::Error::new(io::ErrorKind::InvalidData, "unexpected data in stdin")))?;
-                                 Ok(size)
+
+            Ok(size)
         }
     }
 
@@ -230,8 +249,8 @@ impl Write for Terminal {
 
 struct Editor {
     term: Terminal,
-    cx: i32,
-    cy: i32,
+    cx: u16,
+    cy: u16,
     screen_rows: u16,
     screen_cols: u16,
 }
@@ -313,7 +332,7 @@ impl Editor {
                 }
             },
             Key::ArrowRight => {
-                if self.cx != self.screen_cols as i32 - 1 {
+                if self.cx != self.screen_cols - 1 {
                     self.cx += 1;
                 }
             },
@@ -323,7 +342,7 @@ impl Editor {
                 }
             },
             Key::ArrowDown => {
-                if self.cy != self.screen_rows as i32 - 1 {
+                if self.cy != self.screen_rows - 1 {
                     self.cy += 1;
                 }
             },
@@ -344,6 +363,14 @@ impl Editor {
                 },
                 Key::ArrowUp | Key::ArrowDown | Key::ArrowLeft | Key::ArrowRight => {
                     self.move_cursor(c);
+                    Ok(())
+                },
+                Key::Home => {
+                    self.cx = 0;
+                    Ok(())
+                },
+                Key::End => {
+                    self.cx = self.screen_cols - 1;
                     Ok(())
                 },
                 Key::PageUp => {
